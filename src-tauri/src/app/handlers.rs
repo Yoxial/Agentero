@@ -169,6 +169,7 @@ macro_rules! common_commands {
             crate::features::paper::discovery::scratch::plaza_scratch_prepare,
             crate::features::paper::discovery::scratch::plaza_scratch_stats,
             crate::features::paper::discovery::scratch::plaza_scratch_clear,
+            crate::features::paper::discovery::alphaxiv::plaza_alphaxiv_feed,
             crate::features::paper::discovery::feeds::commands::feeds_set_pinned,
             crate::features::paper::discovery::feeds::commands::feeds_resolve_body,
             crate::features::paper::discovery::recommend::commands::recommend_arxiv,

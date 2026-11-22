@@ -282,6 +282,30 @@
 			"showTranslation": "Show translation",
 			"importing": "Importing…"
 		},
+		"alphaxivPage": {
+			"loading": "Loading alphaXiv papers…",
+			"loadFailed": "Could not load the alphaXiv feed.",
+			"empty": "No papers in this window.",
+			"loadMore": "Load more",
+			"intervalLabel": "Time window",
+			"sort": {
+				"hot": "Hot",
+				"recent": "Recent",
+				"likes": "Likes",
+				"views": "Views"
+			},
+			"interval": {
+				"days3": "3 days",
+				"days7": "7 days",
+				"days30": "30 days",
+				"days90": "90 days",
+				"allTime": "All time"
+			},
+			"votes_one": "{{count}} vote",
+			"votes_other": "{{count}} votes",
+			"views_one": "{{count}} view",
+			"views_other": "{{count}} views"
+		},
 		"pwc": {
 			"label": "Papers with Code"
 		},

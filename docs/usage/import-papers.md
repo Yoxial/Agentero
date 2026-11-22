@@ -20,7 +20,7 @@
 
 ## 发现新论文
 
-侧栏的 **广场** 有 Cool Papers、ModelScope、Hugging Face 每日论文和 Papers with Code 等来源。打开感兴趣的条目后再决定是否加入论文库。想持续跟踪某个来源，可以在 **订阅** 添加 RSS、Atom 或 arXiv 分区。**CCF 截稿**可以按领域和级别筛选。
+侧栏的 **广场** 有 Cool Papers、ModelScope、Hugging Face 每日论文、alphaXiv 和 Papers with Code 等来源。打开感兴趣的条目后再决定是否加入论文库。alphaXiv 按热门、最新、点赞或浏览量列出论文，可以切换时间范围；其中 arXiv 论文可以直接入库，alphaXiv 自己托管的论文只能在站点上打开。想持续跟踪某个来源，可以在 **订阅** 添加 RSS、Atom 或 arXiv 分区。**CCF 截稿**可以按领域和级别筛选。
 
 [![演示订阅里的三篇 Transformer 相关阅读](../assets/screenshots/discovery.webp)](../assets/screenshots/discovery.webp)
 

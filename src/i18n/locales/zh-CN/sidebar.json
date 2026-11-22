@@ -281,6 +281,28 @@
 			"showTranslation": "查看译文",
 			"importing": "入库中…"
 		},
+		"alphaxivPage": {
+			"loading": "正在加载 alphaXiv 论文…",
+			"loadFailed": "无法加载 alphaXiv 论文流。",
+			"empty": "这个时间范围内没有论文。",
+			"loadMore": "加载更多",
+			"intervalLabel": "时间范围",
+			"sort": {
+				"hot": "热门",
+				"recent": "最新",
+				"likes": "点赞",
+				"views": "浏览"
+			},
+			"interval": {
+				"days3": "3 天",
+				"days7": "7 天",
+				"days30": "30 天",
+				"days90": "90 天",
+				"allTime": "全部"
+			},
+			"votes_other": "{{count}} 票",
+			"views_other": "{{count}} 次浏览"
+		},
 		"pwc": {
 			"label": "Papers with Code"
 		},

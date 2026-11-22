@@ -20,6 +20,7 @@ export type PlazaSourceIcon =
 	| "coolPapers"
 	| "modelScope"
 	| "huggingFace"
+	| "alphaXiv"
 	| "conference"
 	| "sparkles"
 	| "rss"
@@ -39,7 +40,13 @@ export type PlazaSource = {
 	/** Minimum virtual viewport for a fixed desktop layout; other sites reflow normally. */
 	desktopWidth?: number;
 	/** Native plaza panel (not an iframe). */
-	panel?: "skills" | "feeds" | "arxivRec" | "ccfDeadlines" | "huggingface";
+	panel?:
+		| "skills"
+		| "feeds"
+		| "arxivRec"
+		| "ccfDeadlines"
+		| "huggingface"
+		| "alphaxiv";
 	/**
 	 * Host proxy scheme origin used for embedding. A cross-origin frame cannot
 	 * retarget the site's `target="_blank"` links or report its navigations, so
@@ -90,6 +97,15 @@ export const PLAZA_SOURCES: readonly PlazaSource[] = [
 		embedOrigin: null,
 		panel: "huggingface",
 		icon: "huggingFace",
+	},
+	{
+		id: "alphaxiv",
+		path: sourcePath("alphaxiv"),
+		label: "alphaXiv",
+		url: "https://www.alphaxiv.org/",
+		embedOrigin: null,
+		panel: "alphaxiv",
+		icon: "alphaXiv",
 	},
 	{
 		id: "papers-with-code",

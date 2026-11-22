@@ -495,6 +495,7 @@ export const commands = {
 	plazaScratchPrepare: (args: PlazaScratchPrepareArgs) => __TAURI_INVOKE<ApiResult<PlazaScratchEntry[]>>("plaza_scratch_prepare", { args }),
 	plazaScratchStats: () => __TAURI_INVOKE<ApiResult<ScratchStats>>("plaza_scratch_stats"),
 	plazaScratchClear: () => __TAURI_INVOKE<ApiResult<ScratchClearResult>>("plaza_scratch_clear"),
+	plazaAlphaxivFeed: (args: AlphaxivFeedQuery) => __TAURI_INVOKE<ApiResult<AlphaxivFeedPage>>("plaza_alphaxiv_feed", { args }),
 	feedsSetPinned: (args: FeedsSetPinnedArgs) => __TAURI_INVOKE<ApiResult<FeedSub>>("feeds_set_pinned", { args }),
 	feedsResolveBody: (args: FeedsIdArgs) => __TAURI_INVOKE<ApiResult<FeedItem>>("feeds_resolve_body", { args }),
 	/**
@@ -1740,6 +1741,50 @@ export type AliasRepairChange = {
 export type AliasRepairResult = {
 	updatedPaths: string[],
 };
+
+export type AlphaxivFeedPage = {
+	page: number,
+	papers: AlphaxivPaper[],
+	/**  A full page came back, so the next one is worth asking for. */
+	hasMore: boolean,
+};
+
+export type AlphaxivFeedQuery = {
+	sort: AlphaxivSort,
+	interval: AlphaxivInterval,
+	/**  Zero-based page. */
+	page: number,
+};
+
+/**  Publication window of the Explore feed. */
+export type AlphaxivInterval = "days3" | "days7" | "days30" | "days90" | "allTime";
+
+export type AlphaxivPaper = {
+	/**
+	 *  alphaXiv's paper id — the `/abs/{id}` path on the site. Equals the bare
+	 *  arXiv id for arXiv papers.
+	 */
+	id: string,
+	/**  Bare arXiv id; `None` for alphaXiv's own uploads, which cannot be imported. */
+	arxivId: string | null,
+	title: string,
+	/**  The paper's abstract, never alphaXiv's AI summary. */
+	abstractText: string,
+	authors: string[],
+	/**  arXiv categories plus alphaXiv's own topic tags. */
+	topics: string[],
+	/**  `YYYY-MM-DD` of the first publication. */
+	published: string | null,
+	votes: number | null,
+	views: number | null,
+	/**  Cover from alphaXiv's asset CDN only. */
+	thumbnail: string | null,
+	githubUrl: string | null,
+	githubStars: number | null,
+};
+
+/**  Ranking of the Explore feed. `ForYou` needs a session and is left out. */
+export type AlphaxivSort = "hot" | "recent" | "likes" | "views";
 
 export type ApiResult<T> = {
 	ok: boolean,

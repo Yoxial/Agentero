@@ -4,6 +4,7 @@
  */
 
 import { useTranslation } from "react-i18next";
+import { PlazaAlphaxivView } from "@/components/plaza/plaza-alphaxiv-view";
 import { PlazaArxivRecView } from "@/components/plaza/plaza-arxiv-rec-view";
 import { PlazaCcfDeadlinesView } from "@/components/plaza/plaza-ccf-deadlines-view";
 import { PlazaFeedsView } from "@/components/plaza/plaza-feeds-view";
@@ -37,6 +38,10 @@ export function PlazaView({
 
 	if (source?.panel === "huggingface") {
 		return <PlazaHuggingFaceView className={className} />;
+	}
+
+	if (source?.panel === "alphaxiv") {
+		return <PlazaAlphaxivView className={className} />;
 	}
 
 	if (source?.panel === "ccfDeadlines") {

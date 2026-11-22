@@ -1,5 +1,6 @@
 //! Paper discovery sources and recommendations.
 
+pub mod alphaxiv;
 #[cfg(feature = "desktop")]
 pub mod coolpapers;
 pub use agentero_core::features::paper::discovery::discover;

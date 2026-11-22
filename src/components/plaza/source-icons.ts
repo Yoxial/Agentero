@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { SiHuggingface } from "react-icons/si";
+import { AlphaxivIcon } from "@/components/icons/alphaxiv-icon";
 import { CoolPapersIcon } from "@/components/icons/cool-papers-icon";
 import { ModelScopeIcon } from "@/components/icons/modelscope-icon";
 import type { PlazaSourceIcon } from "@/lib/plaza";
@@ -25,6 +26,7 @@ export const PLAZA_SOURCE_ICONS: Record<
 	coolPapers: CoolPapersIcon,
 	modelScope: ModelScopeIcon,
 	huggingFace: SiHuggingface,
+	alphaXiv: AlphaxivIcon,
 	conference: Landmark,
 	sparkles: Sparkles,
 	rss: Rss,
