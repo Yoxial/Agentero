@@ -1754,6 +1754,13 @@ export type AlphaxivFeedQuery = {
 	interval: AlphaxivInterval,
 	/**  Zero-based page. */
 	page: number,
+	/**  arXiv categories (`cs.CV`); a paper in any of them matches. Empty = all. */
+	topics?: string[],
+	/**
+	 *  Free-text search. When set, the site's search answers instead of the
+	 *  feed: one unpaged result list, and the ranking fields do not apply.
+	 */
+	search?: string | null,
 };
 
 /**  Publication window of the Explore feed. */

@@ -42,12 +42,28 @@ export function alphaxivPaperUrl(paper: Pick<AlphaxivPaper, "id">): string {
 	return `https://www.alphaxiv.org/abs/${encodeURIComponent(paper.id)}`;
 }
 
+export type AlphaxivFeedRequest = {
+	sort: AlphaxivSort;
+	interval: AlphaxivInterval;
+	/** arXiv categories; empty lists every field. */
+	topics: readonly string[];
+	/** Non-empty switches to the site's search (unpaged, ranking ignored). */
+	search: string;
+};
+
 export async function loadAlphaxivFeed(
-	sort: AlphaxivSort,
-	interval: AlphaxivInterval,
+	request: AlphaxivFeedRequest,
 	page: number,
 ): Promise<AlphaxivFeedPage> {
-	return callApi(() => commands.plazaAlphaxivFeed({ sort, interval, page }), {
-		fallback: "alphaxiv.loadFailed",
-	});
+	return callApi(
+		() =>
+			commands.plazaAlphaxivFeed({
+				sort: request.sort,
+				interval: request.interval,
+				page,
+				topics: [...request.topics],
+				search: request.search.trim() || null,
+			}),
+		{ fallback: "alphaxiv.loadFailed" },
+	);
 }

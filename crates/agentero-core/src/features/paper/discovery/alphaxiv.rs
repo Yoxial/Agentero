@@ -76,6 +76,13 @@ pub struct AlphaxivFeedQuery {
     pub interval: AlphaxivInterval,
     /// Zero-based page.
     pub page: u32,
+    /// arXiv categories (`cs.CV`); a paper in any of them matches. Empty = all.
+    #[serde(default)]
+    pub topics: Vec<String>,
+    /// Free-text search. When set, the site's search answers instead of the
+    /// feed: one unpaged result list, and the ranking fields do not apply.
+    #[serde(default)]
+    pub search: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
@@ -111,19 +118,60 @@ pub struct AlphaxivFeedPage {
     pub has_more: bool,
 }
 
+/// Only arXiv category names reach the URL (`cs.CV`, `stat.ML`, `hep-th`).
+fn is_category(topic: &str) -> bool {
+    !topic.is_empty()
+        && topic.len() <= 32
+        && topic
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'-'))
+}
+
 pub fn feed_url(query: &AlphaxivFeedQuery) -> String {
+    let topics: Vec<&str> = query
+        .topics
+        .iter()
+        .map(|topic| topic.trim())
+        .filter(|topic| is_category(topic))
+        .collect();
+    let topics = serde_json::to_string(&topics).unwrap_or_else(|_| "[]".to_string());
     format!(
-        "{API_BASE}/papers/v3/feed?pageNum={}&pageSize={PAGE_SIZE}&sort={}&interval={}&topics=%5B%5D",
+        "{API_BASE}/papers/v3/feed?pageNum={}&pageSize={PAGE_SIZE}&sort={}&interval={}&topics={}",
         query.page,
         urlencoding::encode(query.sort.api_value()),
         urlencoding::encode(query.interval.api_value()),
+        urlencoding::encode(&topics),
     )
 }
 
+pub fn search_url(text: &str) -> String {
+    format!("{API_BASE}/v1/search/paper?q={}", urlencoding::encode(text))
+}
+
 pub async fn fetch_feed(query: &AlphaxivFeedQuery) -> Result<AlphaxivFeedPage, AppError> {
+    let search = query
+        .search
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    if let Some(text) = search {
+        let value = client::get_json(&search_url(text)).await?;
+        return parse_search(&value)
+            .ok_or_else(|| AppError::message("alphaXiv search: unexpected response shape"));
+    }
     let value = client::get_json(&feed_url(query)).await?;
     parse_feed(&value, query.page)
         .ok_or_else(|| AppError::message("alphaXiv feed: unexpected response shape"))
+}
+
+/// Top-level array of feed-shaped rows; the search is not paged.
+pub fn parse_search(value: &Value) -> Option<AlphaxivFeedPage> {
+    let rows = value.as_array()?;
+    Some(AlphaxivFeedPage {
+        page: 0,
+        has_more: false,
+        papers: rows.iter().filter_map(map_paper).collect(),
+    })
 }
 
 /// `{ papers: [...], page }`; rows without a title are dropped.
@@ -302,6 +350,8 @@ mod tests {
             sort: AlphaxivSort::Hot,
             interval: AlphaxivInterval::Days3,
             page: 1,
+            topics: Vec::new(),
+            search: None,
         });
         assert_eq!(
             url,
@@ -311,8 +361,41 @@ mod tests {
             sort: AlphaxivSort::Recent,
             interval: AlphaxivInterval::AllTime,
             page: 0,
+            topics: Vec::new(),
+            search: None,
         })
         .contains("sort=Recent&interval=All%20time"));
+    }
+
+    /// Categories go out as a JSON array; anything that is not a category
+    /// name is dropped rather than forwarded.
+    #[test]
+    fn feed_url_filters_by_arxiv_categories() {
+        let url = feed_url(&AlphaxivFeedQuery {
+            sort: AlphaxivSort::Hot,
+            interval: AlphaxivInterval::Days7,
+            page: 0,
+            topics: vec![
+                "cs.CV".to_string(),
+                " stat.ML ".to_string(),
+                "\"],\"x".to_string(),
+                String::new(),
+            ],
+            search: None,
+        });
+        assert!(url.ends_with("&topics=%5B%22cs.CV%22%2C%22stat.ML%22%5D"));
+    }
+
+    #[test]
+    fn search_is_one_unpaged_list() {
+        assert_eq!(
+            search_url("diffusion transformer"),
+            "https://api.alphaxiv.org/v1/search/paper?q=diffusion%20transformer"
+        );
+        let page = parse_search(&json!([arxiv_row(), native_row()])).expect("parsed");
+        assert_eq!(page.papers.len(), 2);
+        assert!(!page.has_more);
+        assert!(parse_search(&json!({ "error": "nope" })).is_none());
     }
 
     /// Wire names are what the renderer sends (`bindings.ts`).

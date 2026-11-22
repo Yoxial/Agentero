@@ -615,7 +615,7 @@ function RecommendCard({
 	);
 }
 
-function CategoryPicker({
+export function CategoryPicker({
 	disabled,
 	existing,
 	onSelect,

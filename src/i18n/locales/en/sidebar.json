@@ -288,6 +288,8 @@
 			"empty": "No papers in this window.",
 			"loadMore": "Load more",
 			"intervalLabel": "Time window",
+			"searchPlaceholder": "Search alphaXiv…",
+			"clearSearch": "Clear search",
 			"sort": {
 				"hot": "Hot",
 				"recent": "Recent",

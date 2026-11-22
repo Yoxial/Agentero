@@ -6,19 +6,25 @@
  */
 
 import {
+	ChevronDown,
 	ExternalLink,
-	FileText,
+	Eye,
 	Languages,
 	RotateCw,
+	Search,
 	Star,
+	ThumbsUp,
+	X,
 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SiGithub } from "react-icons/si";
+import { CategoryPicker } from "@/components/plaza/plaza-arxiv-rec-view";
 import { SelectionSurface } from "@/components/selection/selection-surface";
 import { MoveDestinationPicker } from "@/components/sidebar/file-tree/move-destination-picker";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
 	Select,
@@ -44,19 +50,31 @@ import {
 	alphaxivPaperUrl,
 	loadAlphaxivFeed,
 } from "@/lib/plaza/alphaxiv";
+import { formatFeedWhen } from "@/lib/plaza/feeds";
 import { importPlazaPaper } from "@/lib/plaza/import";
 import { matchingImportedIds } from "@/lib/plaza/imported";
 import { runTranslate } from "@/lib/translate";
 
-type Query = { sort: AlphaxivSort; interval: AlphaxivInterval; nonce: number };
+type Query = {
+	sort: AlphaxivSort;
+	interval: AlphaxivInterval;
+	topics: string[];
+	search: string;
+	nonce: number;
+};
 
 export function PlazaAlphaxivView({ className }: { className?: string }) {
 	const { t } = useTranslation("sidebar");
 	const [query, setQuery] = useState<Query>({
 		sort: ALPHAXIV_DEFAULT_SORT,
 		interval: ALPHAXIV_DEFAULT_INTERVAL,
+		topics: [],
+		search: "",
 		nonce: 0,
 	});
+	const [searchDraft, setSearchDraft] = useState("");
+	// Search replaces the feed, so its ranking and category controls go idle.
+	const searching = query.search !== "";
 	const [papers, setPapers] = useState<AlphaxivPaper[]>([]);
 	const [page, setPage] = useState(0);
 	const [hasMore, setHasMore] = useState(false);
@@ -87,7 +105,7 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 	useEffect(() => {
 		const id = ++requestRef.current;
 		setStatus("loading");
-		loadAlphaxivFeed(query.sort, query.interval, 0).then(
+		loadAlphaxivFeed(query, 0).then(
 			(result) => {
 				if (id !== requestRef.current) return;
 				setPapers(result.papers);
@@ -105,11 +123,7 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 		const id = ++requestRef.current;
 		setStatus("loadingMore");
 		try {
-			const result = await loadAlphaxivFeed(
-				query.sort,
-				query.interval,
-				page + 1,
-			);
+			const result = await loadAlphaxivFeed(query, page + 1);
 			if (id !== requestRef.current) return;
 			setPapers((prev) => {
 				const seen = new Set(prev.map((paper) => paper.id));
@@ -129,60 +143,138 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 	}
 
 	return (
-		<div className={cn("flex h-full min-h-0 flex-col", className)}>
-			<div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
-				{ALPHAXIV_SORTS.map((sort) => (
+		<div
+			className={cn(
+				"agentero-scroll @container h-full min-h-0 overflow-y-auto",
+				className,
+			)}
+			aria-busy={status === "loading" || status === "loadingMore"}
+		>
+			<div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-5">
+				<form
+					className="relative"
+					onSubmit={(event) => {
+						event.preventDefault();
+						setQuery((prev) => ({ ...prev, search: searchDraft.trim() }));
+					}}
+				>
+					<Search
+						aria-hidden
+						className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input
+						type="search"
+						className="h-10 rounded-full pr-10 pl-10 text-sm"
+						value={searchDraft}
+						placeholder={t("plaza.alphaxivPage.searchPlaceholder")}
+						aria-label={t("plaza.alphaxivPage.searchPlaceholder")}
+						onChange={(event) => setSearchDraft(event.target.value)}
+					/>
+					{(searchDraft || searching) && (
+						<button
+							type="button"
+							className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+							aria-label={t("plaza.alphaxivPage.clearSearch")}
+							title={t("plaza.alphaxivPage.clearSearch")}
+							onClick={() => {
+								setSearchDraft("");
+								setQuery((prev) => ({ ...prev, search: "" }));
+							}}
+						>
+							<X className="size-3.5" aria-hidden />
+						</button>
+					)}
+				</form>
+				<div className="flex flex-wrap items-center gap-1.5">
+					{ALPHAXIV_SORTS.map((sort) => (
+						<Button
+							key={sort}
+							type="button"
+							size="sm"
+							className="rounded-full"
+							variant={query.sort === sort ? "secondary" : "ghost"}
+							aria-pressed={query.sort === sort}
+							disabled={searching}
+							onClick={() => setQuery((prev) => ({ ...prev, sort }))}
+						>
+							{t(`plaza.alphaxivPage.sort.${sort}`)}
+						</Button>
+					))}
+					<Select
+						value={query.interval}
+						disabled={searching}
+						onValueChange={(interval) =>
+							setQuery((prev) => ({
+								...prev,
+								interval: interval as AlphaxivInterval,
+							}))
+						}
+					>
+						<SelectTrigger
+							size="sm"
+							className="rounded-full"
+							aria-label={t("plaza.alphaxivPage.intervalLabel")}
+						>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{ALPHAXIV_INTERVALS.map((interval) => (
+								<SelectItem key={interval} value={interval}>
+									{t(`plaza.alphaxivPage.interval.${interval}`)}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					{query.topics.map((topic) => (
+						<span
+							key={topic}
+							className={cn(
+								"inline-flex items-center gap-0.5 rounded-full border border-primary/40 bg-primary/10 py-0.5 pr-0.5 pl-2 font-mono text-caption text-foreground",
+								searching && "opacity-60",
+							)}
+						>
+							{topic}
+							<button
+								type="button"
+								disabled={searching}
+								className="rounded-full p-0.5 hover:bg-foreground/10"
+								aria-label={t("plaza.arxivRec.removeCategory", {
+									category: topic,
+								})}
+								onClick={() =>
+									setQuery((prev) => ({
+										...prev,
+										topics: prev.topics.filter((item) => item !== topic),
+									}))
+								}
+							>
+								<X className="size-2.5" aria-hidden />
+							</button>
+						</span>
+					))}
+					<CategoryPicker
+						disabled={searching}
+						existing={query.topics}
+						onSelect={(topic) =>
+							setQuery((prev) => ({
+								...prev,
+								topics: [...prev.topics, topic],
+							}))
+						}
+					/>
 					<Button
-						key={sort}
 						type="button"
-						size="sm"
-						variant={query.sort === sort ? "secondary" : "ghost"}
-						aria-pressed={query.sort === sort}
-						onClick={() => setQuery((prev) => ({ ...prev, sort }))}
+						className="ml-auto rounded-full"
+						variant="ghost"
+						size="icon-sm"
+						aria-label={t("plaza.reload")}
+						title={t("plaza.reload")}
+						disabled={status === "loading"}
+						onClick={reload}
 					>
-						{t(`plaza.alphaxivPage.sort.${sort}`)}
+						<RotateCw aria-hidden />
 					</Button>
-				))}
-				<Select
-					value={query.interval}
-					onValueChange={(interval) =>
-						setQuery((prev) => ({
-							...prev,
-							interval: interval as AlphaxivInterval,
-						}))
-					}
-				>
-					<SelectTrigger
-						size="sm"
-						aria-label={t("plaza.alphaxivPage.intervalLabel")}
-					>
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						{ALPHAXIV_INTERVALS.map((interval) => (
-							<SelectItem key={interval} value={interval}>
-								{t(`plaza.alphaxivPage.interval.${interval}`)}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Button
-					type="button"
-					className="ml-auto"
-					variant="ghost"
-					size="icon-sm"
-					aria-label={t("plaza.reload")}
-					title={t("plaza.reload")}
-					disabled={status === "loading"}
-					onClick={reload}
-				>
-					<RotateCw aria-hidden />
-				</Button>
-			</div>
-			<div
-				className="agentero-scroll min-h-0 flex-1 overflow-y-auto p-3"
-				aria-busy={status === "loading" || status === "loadingMore"}
-			>
+				</div>
 				{status === "loading" ? (
 					<EmptyState>{t("plaza.alphaxivPage.loading")}</EmptyState>
 				) : status === "error" ? (
@@ -196,7 +288,7 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 					<EmptyState>{t("plaza.alphaxivPage.empty")}</EmptyState>
 				) : (
 					<>
-						<div className="mx-auto grid max-w-7xl grid-cols-[repeat(auto-fill,minmax(min(100%,21rem),1fr))] items-start gap-3">
+						<div className="flex flex-col gap-4">
 							{papers.map((paper) => (
 								<PaperCard
 									key={`${vaultPath ?? ""}:${paper.id}`}
@@ -217,11 +309,12 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 							))}
 						</div>
 						{hasMore && (
-							<div className="mx-auto flex max-w-7xl justify-center pt-4 pb-1">
+							<div className="flex justify-center pb-1">
 								<Button
 									type="button"
 									size="sm"
 									variant="outline"
+									className="rounded-full"
 									disabled={status === "loadingMore"}
 									onClick={() => void loadMore()}
 								>
@@ -253,7 +346,15 @@ function PaperCard({
 	lastFolder: string | null;
 	rememberFolder: (folder: string) => void;
 }) {
-	const { t } = useTranslation("sidebar");
+	const { t, i18n } = useTranslation("sidebar");
+	const compact = useMemo(
+		() =>
+			new Intl.NumberFormat(i18n.language, {
+				notation: "compact",
+				maximumFractionDigits: 1,
+			}),
+		[i18n.language],
+	);
 	const popupId = useId();
 	const tree = useVaultStore((state) => state.tree);
 	const [expanded, setExpanded] = useState(false);
@@ -321,154 +422,198 @@ function PaperCard({
 			: t("plaza.feeds.import");
 	const importDisabled = isImported || importState === "pending" || !vaultPath;
 
+	const translateLabel = t(
+		translating
+			? "plaza.huggingfacePage.translating"
+			: showTranslation
+				? "plaza.huggingfacePage.showOriginal"
+				: translation
+					? "plaza.huggingfacePage.showTranslation"
+					: "plaza.huggingfacePage.translate",
+	);
+	const expandLabel = t(
+		expanded
+			? "plaza.huggingfacePage.collapseAbstract"
+			: "plaza.huggingfacePage.expandAbstract",
+	);
+	const when = formatFeedWhen(paper.published, i18n.language);
+
+	// alphaXiv's Explore row: text on the left, cover on the right.
 	return (
-		<article className="min-w-0 overflow-hidden rounded-lg border bg-background">
-			<PaperCover key={paper.thumbnail} thumbnail={paper.thumbnail} />
-			<div className="p-3">
-				<h2 className="break-words font-medium text-sm leading-snug">
-					{paper.title}
-				</h2>
-				{paper.authors.length > 0 && (
-					<p
-						className="mt-1 line-clamp-2 text-muted-foreground text-xs"
-						title={paper.authors.join(", ")}
-					>
-						{paper.authors.join(", ")}
-					</p>
-				)}
-				<div className="mt-1 flex flex-wrap items-center gap-x-3 text-caption text-muted-foreground">
-					{paper.published && (
-						<time dateTime={paper.published}>{paper.published}</time>
-					)}
-					{paper.votes != null && (
-						<span>{t("plaza.alphaxivPage.votes", { count: paper.votes })}</span>
-					)}
-					{paper.views != null && (
-						<span>{t("plaza.alphaxivPage.views", { count: paper.views })}</span>
-					)}
-					{categories.length > 0 && (
-						<span className="truncate" title={categories.join(" · ")}>
-							{categories.slice(0, 3).join(" · ")}
-						</span>
-					)}
-				</div>
-				{paper.abstractText && (
-					<SelectionSurface
-						source={{
-							sourcePath: url,
-							sourceUrl: url,
-							sourceTitle: paper.title,
-							origin: "markdown",
-							surface: "abstract",
-						}}
-						className={cn(
-							"mt-2 whitespace-pre-wrap break-words select-text text-muted-foreground text-xs leading-relaxed",
-							!expanded && "line-clamp-3",
-						)}
-					>
-						{showTranslation ? translation : paper.abstractText}
-					</SelectionSurface>
-				)}
-				<div className="mt-2 flex flex-wrap items-center gap-1">
-					{paper.abstractText && (
-						<>
-							<Button
-								type="button"
-								size="sm"
-								variant="ghost"
-								aria-expanded={expanded}
-								onClick={() => setExpanded(!expanded)}
-							>
-								{t(
-									expanded
-										? "plaza.huggingfacePage.collapseAbstract"
-										: "plaza.huggingfacePage.expandAbstract",
-								)}
-							</Button>
-							<Button
-								type="button"
-								size="sm"
-								variant="ghost"
-								disabled={translating}
-								onClick={() => void translateAbstract()}
-							>
-								<Languages aria-hidden />
-								{t(
-									translating
-										? "plaza.huggingfacePage.translating"
-										: showTranslation
-											? "plaza.huggingfacePage.showOriginal"
-											: translation
-												? "plaza.huggingfacePage.showTranslation"
-												: "plaza.huggingfacePage.translate",
-								)}
-							</Button>
-						</>
-					)}
-					<Button
-						type="button"
-						size="sm"
-						variant="ghost"
-						onClick={() => openExternalUrl(url)}
-					>
-						<ExternalLink aria-hidden />
-						{t("plaza.feeds.openOriginal")}
-					</Button>
-					{paper.githubUrl && (
-						<Button
+		<article className="rounded-xl border bg-background px-4 py-3 transition-shadow hover:shadow-md">
+			<div className="flex w-full gap-6">
+				<div className="flex min-w-0 flex-1 flex-col gap-3">
+					<h2 className="font-semibold text-lg leading-tight">
+						<button
 							type="button"
-							size="sm"
-							variant="ghost"
-							title={paper.githubUrl}
-							onClick={() =>
-								paper.githubUrl && openExternalUrl(paper.githubUrl)
-							}
+							className="break-words text-left transition-colors hover:text-primary"
+							onClick={() => openExternalUrl(url)}
 						>
-							<SiGithub aria-hidden />
-							{paper.githubStars != null && (
+							{paper.title}
+						</button>
+					</h2>
+					{paper.authors.length > 0 && (
+						<p className="truncate text-sm" title={paper.authors.join(", ")}>
+							{paper.authors.join(", ")}
+						</p>
+					)}
+					{paper.abstractText && (
+						<SelectionSurface
+							source={{
+								sourcePath: url,
+								sourceUrl: url,
+								sourceTitle: paper.title,
+								origin: "markdown",
+								surface: "abstract",
+							}}
+							className={cn(
+								"whitespace-pre-wrap break-words select-text text-muted-foreground text-sm leading-relaxed",
+								!expanded && "line-clamp-3",
+							)}
+						>
+							{showTranslation ? translation : paper.abstractText}
+						</SelectionSurface>
+					)}
+					<div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+						<div className="flex flex-wrap items-center gap-1">
+							{paper.votes != null && (
+								<span
+									className="inline-flex h-7 items-center gap-1.5 rounded-full bg-muted px-2.5 text-xs tabular-nums"
+									title={t("plaza.alphaxivPage.votes", { count: paper.votes })}
+								>
+									<ThumbsUp aria-hidden className="size-3.5" />
+									{compact.format(paper.votes)}
+								</span>
+							)}
+							{paper.abstractText && (
 								<>
-									<Star aria-hidden className="size-3" />
-									{paper.githubStars}
+									<Button
+										type="button"
+										size="icon-sm"
+										variant="ghost"
+										className="rounded-full"
+										aria-expanded={expanded}
+										aria-label={expandLabel}
+										title={expandLabel}
+										onClick={() => setExpanded(!expanded)}
+									>
+										<ChevronDown
+											aria-hidden
+											className={cn(
+												"transition-transform",
+												expanded && "rotate-180",
+											)}
+										/>
+									</Button>
+									<Button
+										type="button"
+										size="icon-sm"
+										variant={showTranslation ? "secondary" : "ghost"}
+										className="rounded-full"
+										disabled={translating}
+										aria-label={translateLabel}
+										title={translateLabel}
+										onClick={() => void translateAbstract()}
+									>
+										<Languages aria-hidden />
+									</Button>
 								</>
 							)}
-						</Button>
-					)}
-					{paper.arxivId && (
-						<Popover
-							open={pickerOpen}
-							onOpenChange={(open) => {
-								setPickerOpen(open);
-								if (!open) setNewFolder("");
-							}}
-						>
-							<PopoverTrigger asChild>
+							<Button
+								type="button"
+								size="icon-sm"
+								variant="ghost"
+								className="rounded-full"
+								aria-label={t("plaza.feeds.openOriginal")}
+								title={t("plaza.feeds.openOriginal")}
+								onClick={() => openExternalUrl(url)}
+							>
+								<ExternalLink aria-hidden />
+							</Button>
+							{paper.githubUrl && (
 								<Button
 									type="button"
 									size="sm"
-									variant="outline"
-									disabled={importDisabled}
+									variant="ghost"
+									className="rounded-full tabular-nums"
+									title={paper.githubUrl}
+									onClick={() =>
+										paper.githubUrl && openExternalUrl(paper.githubUrl)
+									}
 								>
-									{importLabel}
+									<SiGithub aria-hidden />
+									{paper.githubStars != null && (
+										<>
+											<Star aria-hidden className="size-3" />
+											{compact.format(paper.githubStars)}
+										</>
+									)}
 								</Button>
-							</PopoverTrigger>
-							{pickerOpen && (
-								<MoveDestinationPicker
-									vaultPath={vaultPath}
-									nodes={tree}
-									sourcePaths={[]}
-									selectedFolder={lastFolder ?? currentLookupParentDir()}
-									newFolder={newFolder}
-									busy={false}
-									onNewFolderChange={setNewFolder}
-									onConfirm={importTo}
-									title={t("plaza.importToFolder")}
-									idPrefix={popupId}
-									side="bottom"
-								/>
 							)}
-						</Popover>
-					)}
+							{paper.arxivId && (
+								<Popover
+									open={pickerOpen}
+									onOpenChange={(open) => {
+										setPickerOpen(open);
+										if (!open) setNewFolder("");
+									}}
+								>
+									<PopoverTrigger asChild>
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											className="rounded-full"
+											disabled={importDisabled}
+										>
+											{importLabel}
+										</Button>
+									</PopoverTrigger>
+									{pickerOpen && (
+										<MoveDestinationPicker
+											vaultPath={vaultPath}
+											nodes={tree}
+											sourcePaths={[]}
+											selectedFolder={lastFolder ?? currentLookupParentDir()}
+											newFolder={newFolder}
+											busy={false}
+											onNewFolderChange={setNewFolder}
+											onConfirm={importTo}
+											title={t("plaza.importToFolder")}
+											idPrefix={popupId}
+											side="bottom"
+										/>
+									)}
+								</Popover>
+							)}
+						</div>
+						<div className="flex min-w-0 items-center gap-3 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+							{categories.length > 0 && (
+								<span
+									className="truncate font-mono"
+									title={categories.join(" · ")}
+								>
+									{categories.slice(0, 2).join(" · ")}
+								</span>
+							)}
+							{paper.published && when && (
+								<time dateTime={paper.published} title={paper.published}>
+									{when}
+								</time>
+							)}
+							{paper.views != null && (
+								<span
+									className="inline-flex items-center gap-1"
+									title={t("plaza.alphaxivPage.views", { count: paper.views })}
+								>
+									<Eye aria-hidden className="size-3.5" />
+									{compact.format(paper.views)}
+								</span>
+							)}
+						</div>
+					</div>
 				</div>
+				<PaperCover key={paper.thumbnail} thumbnail={paper.thumbnail} />
 			</div>
 		</article>
 	);
@@ -476,27 +621,24 @@ function PaperCard({
 
 function PaperCover({ thumbnail }: { thumbnail: string | null }) {
 	const [failed, setFailed] = useState(false);
+	if (!thumbnail || failed) return null;
+	// Only where the row is wide enough to keep the text readable beside it.
 	return (
 		<div
-			className="relative aspect-[2/1] overflow-hidden border-b bg-muted/50"
+			className="hidden aspect-[8/5] w-[17.5rem] shrink-0 self-start overflow-hidden rounded-lg border bg-white @2xl:block"
 			aria-hidden
 		>
-			<div className="absolute inset-0 grid place-items-center text-muted-foreground/50">
-				<FileText className="size-9" />
-			</div>
-			{thumbnail && !failed && (
-				<img
-					alt=""
-					src={thumbnail}
-					loading="lazy"
-					decoding="async"
-					referrerPolicy="no-referrer"
-					// First-page renders are portrait; the title block at the top is the
-					// useful part of a 2:1 cover.
-					className="relative h-full w-full bg-muted object-cover object-top"
-					onError={() => setFailed(true)}
-				/>
-			)}
+			<img
+				alt=""
+				src={thumbnail}
+				loading="lazy"
+				decoding="async"
+				referrerPolicy="no-referrer"
+				// First-page renders are portrait; the title block at the top is the
+				// useful part of a landscape cover.
+				className="size-full object-cover object-top"
+				onError={() => setFailed(true)}
+			/>
 		</div>
 	);
 }
