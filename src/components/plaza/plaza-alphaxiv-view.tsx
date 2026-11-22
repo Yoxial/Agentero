@@ -54,6 +54,7 @@ import { formatFeedWhen } from "@/lib/plaza/feeds";
 import { importPlazaPaper } from "@/lib/plaza/import";
 import { matchingImportedIds } from "@/lib/plaza/imported";
 import { runTranslate } from "@/lib/translate";
+import { openRemoteArxivPaper } from "@/lib/workspace/actions";
 
 type Query = {
 	sort: AlphaxivSort;
@@ -333,6 +334,42 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 	);
 }
 
+/**
+ * Open a paper inside the app (never jump to the system browser):
+ * arXiv rows reuse the in-app PDF viewer; alphaXiv-only uploads have no
+ * arXiv PDF, so they open in an in-app webview window.
+ */
+function openPaperInApp(paper: AlphaxivPaper, url: string) {
+	if (paper.arxivId) {
+		openRemoteArxivPaper({
+			arxivId: paper.arxivId,
+			title: paper.title,
+			abstract: paper.abstractText,
+			url: `https://arxiv.org/abs/${paper.arxivId}`,
+		});
+		return;
+	}
+	void (async () => {
+		try {
+			const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+			const label = `agentero-alphaxiv-${paper.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+			const existing = await WebviewWindow.getByLabel(label);
+			if (existing) {
+				await existing.setFocus();
+				return;
+			}
+			new WebviewWindow(label, {
+				url,
+				title: paper.title,
+				width: 1100,
+				height: 800,
+			});
+		} catch {
+			openExternalUrl(url);
+		}
+	})();
+}
+
 function PaperCard({
 	paper,
 	imported,
@@ -447,7 +484,7 @@ function PaperCard({
 						<button
 							type="button"
 							className="break-words text-left transition-colors hover:text-primary"
-							onClick={() => openExternalUrl(url)}
+							onClick={() => openPaperInApp(paper, url)}
 						>
 							{paper.title}
 						</button>
@@ -550,7 +587,7 @@ function PaperCard({
 									)}
 								</Button>
 							)}
-							{paper.arxivId && (
+							{paper.arxivId ? (
 								<Popover
 									open={pickerOpen}
 									onOpenChange={(open) => {
@@ -585,6 +622,13 @@ function PaperCard({
 										/>
 									)}
 								</Popover>
+							) : (
+								<span
+									className="text-xs text-muted-foreground"
+									title={t("plaza.alphaxivPage.nativeOnly")}
+								>
+									{t("plaza.alphaxivPage.nativeOnly")}
+								</span>
 							)}
 						</div>
 						<div className="flex min-w-0 items-center gap-3 whitespace-nowrap text-muted-foreground text-xs tabular-nums">

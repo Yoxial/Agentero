@@ -303,7 +303,8 @@
 				"allTime": "全部"
 			},
 			"votes_other": "{{count}} 票",
-			"views_other": "{{count}} 次浏览"
+			"views_other": "{{count}} 次浏览",
+			"nativeOnly": "alphaXiv 原创 · 暂不可入库"
 		},
 		"pwc": {
 			"label": "Papers with Code"
