@@ -222,12 +222,30 @@
 		"openreviewAuth": {
 			"label": "OpenReview",
 			"login": "登录",
-			"loggingIn": "等待验证…",
-			"statusIdle": "未验证",
-			"statusWaiting": "等待验证…",
-			"statusOk": "已验证",
+			"loggingIn": "等待登录…",
+			"statusIdle": "未登录",
+			"statusWaiting": "等待登录…",
+			"statusOk": "浏览器已验证",
+			"statusSignedIn": "已登录",
+			"statusSessionExpired": "登录已过期",
 			"statusExpired": "验证已过期",
-			"loginFailed": "无法打开 OpenReview 登录窗口"
+			"loginFailed": "OpenReview 登录失败"
+		},
+		"alphaxiv": {
+			"label": "AlphaXiv",
+			"keyLabel": "API 密钥",
+			"placeholder": "粘贴 AlphaXiv API 密钥",
+			"test": "测试连接",
+			"testing": "测试中…",
+			"disconnect": "断开",
+			"disconnecting": "断开中…",
+			"statusIdle": "未连接",
+			"statusOk": "已连接",
+			"statusFail": "无法连接",
+			"statusProbing": "测试中…",
+			"testFailed": "AlphaXiv 连接失败",
+			"clearFailed": "无法断开 AlphaXiv",
+			"openKeyPage": "获取密钥"
 		},
 		"easyScholar": {
 			"section": "EasyScholar",
@@ -481,7 +499,9 @@
 			"qwenwork": "千问办公",
 			"workbuddy": "WorkBuddy",
 			"dsh-desktop": "Dsh 桌面版",
-			"bundledCli": "自带 CLI，可接入"
+			"bundledCli": "自带 CLI，可接入",
+			"unsupported": "暂无 Linux 版",
+			"unsupportedHint": "Dsh 桌面版暂无 Linux 版本——可用 `npm i -g @deepseek-ai/dsh` 安装 dsh CLI 作为 Agent 使用。"
 		},
 		"zcodeDesktopPathHint": "若未找到 ZCode，请将 ZCODE_BIN 设为其 zcode.cjs 路径；支持任意盘符及多层目录安装。",
 		"defaultAgent": {

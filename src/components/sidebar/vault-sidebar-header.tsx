@@ -23,6 +23,7 @@ import {
 	type OpenRemoteVaultArgs,
 	RemoteVaultDialog,
 } from "@/components/dialogs/remote-vault-dialog";
+import { AlphaXivIcon } from "@/components/icons/paper-service-icons";
 import { PaneHeader } from "@/components/shell/pane-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -95,6 +96,8 @@ export type VaultSidebarHeaderProps = {
 	onOpenRemoteVault?: (args: OpenRemoteVaultArgs) => void | Promise<void>;
 	/** Migrate from Zotero (item in the vault switcher dropdown). */
 	onMigrateZotero?: () => void;
+	/** Import selected papers from an AlphaXiv library. */
+	onImportAlphaXiv?: () => void;
 	/** Bidirectional Zotero sync (item in the vault switcher dropdown). */
 	onSyncZotero?: () => void;
 };
@@ -119,6 +122,7 @@ export const VaultSidebarHeader = memo(function VaultSidebarHeader({
 	onCreateVault,
 	onOpenRemoteVault,
 	onMigrateZotero,
+	onImportAlphaXiv,
 	onSyncZotero,
 }: VaultSidebarHeaderProps) {
 	const { t } = useTranslation(["sidebar", "shortcuts", "app"]);
@@ -679,8 +683,19 @@ export const VaultSidebarHeader = memo(function VaultSidebarHeader({
 								<FolderPlus className="size-3.5" />
 								{t("app:vault.createVaultButton")}
 							</DropdownMenuItem>
-							{onMigrateZotero || onSyncZotero ? (
+							{onMigrateZotero || onImportAlphaXiv || onSyncZotero ? (
 								<DropdownMenuSeparator />
+							) : null}
+							{onImportAlphaXiv ? (
+								<DropdownMenuItem
+									disabled={actionsDisabled}
+									onSelect={() => {
+										requestAnimationFrame(() => onImportAlphaXiv());
+									}}
+								>
+									<AlphaXivIcon className="size-3.5 shrink-0 text-[#B33131]" />
+									{t("alphaxivImport.button")}
+								</DropdownMenuItem>
 							) : null}
 							{onMigrateZotero ? (
 								<DropdownMenuItem

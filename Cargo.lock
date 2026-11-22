@@ -95,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "agentero"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "agent-client-protocol",
  "agentero-core",
@@ -116,6 +116,7 @@ dependencies = [
  "hayagriva",
  "hex",
  "htmd",
+ "keyring",
  "log",
  "notify-debouncer-full",
  "objc2-app-kit",
@@ -171,7 +172,7 @@ dependencies = [
 
 [[package]]
 name = "agentero-cli"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "agentero-core",
  "agentero-mcp",
@@ -194,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "agentero-core"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "aes 0.8.4",
  "async-trait",
@@ -202,6 +203,7 @@ dependencies = [
  "bitflags 2.13.1",
  "chrono",
  "dirs 6.0.0",
+ "dom_query",
  "dom_smoothie",
  "dunce",
  "feed-rs",
@@ -240,7 +242,7 @@ dependencies = [
 
 [[package]]
 name = "agentero-mcp"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "agentero-core",
  "async-trait",

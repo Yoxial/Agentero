@@ -58,12 +58,10 @@ export const commands = {
 	 *  Resolves once the login window closes; `true` when a cookie was captured.
 	 */
 	institutionProxyLoginOpen: (prefix: string) => typedError<boolean, string>(__TAURI_INVOKE("institution_proxy_login_open", { prefix })),
-	/**
-	 *  Open (or focus) the verification window for the Settings button: no target
-	 *  URL, so it opens OpenReview's challenge gate and waits until a captured
-	 *  cookie passes the probe (or the window is closed).
-	 */
+	/**  Use the official sign-in page, including any MFA required by the account. */
 	openreviewAuthLoginOpen: () => typedError<boolean, string>(__TAURI_INVOKE("openreview_auth_login_open")),
+	/**  Return the expiry of the account session for the Settings indicator. */
+	openreviewAccountExpiry: () => __TAURI_INVOKE<number | null>("openreview_account_expiry"),
 	builtinProviderStatus: () => __TAURI_INVOKE<ApiResult<BuiltinProviderStatus>>("builtin_provider_status"),
 	decisionGatewayDecide: (request: DecisionGatewayRequest) => __TAURI_INVOKE<ApiResult<DecisionGatewayResponse>>("decision_gateway_decide", { request }),
 	layoutModelStatus: () => __TAURI_INVOKE<ApiResult<LayoutModelStatus>>("layout_model_status"),
@@ -119,7 +117,7 @@ export const commands = {
 	doctorCheckNetwork: () => typedError<ApiResult<NetworkDoctorReport_Serialize>, string>(__TAURI_INVOKE("doctor_check_network")),
 	/**  List which known desktop apps are installed on this machine. */
 	desktopAppsProbe: () => typedError<ApiResult<DesktopAppStatus_Serialize[]>, string>(__TAURI_INVOKE("desktop_apps_probe")),
-	/**  Launch one installed desktop app (macOS or Windows). */
+	/**  Launch one installed desktop app (macOS, Windows or Linux). */
 	desktopAppOpen: (id: DesktopAppId) => typedError<ApiResult<null>, string>(__TAURI_INVOKE("desktop_app_open", { id })),
 	/**
 	 *  Retarget in-flight agent runs that emit to `source_label` so later events
@@ -359,6 +357,8 @@ export const commands = {
 	 *  origin was unreachable or behind a WAF.
 	 */
 	paperRecaptureWebpage: (vaultPath: string, path: string) => typedError<ApiResult<WebpageSnapshotResult>, string>(__TAURI_INVOKE("paper_recapture_webpage", { vaultPath, path })),
+	/**  Verify access to a PDF on the catalog entry the user chose to retry. */
+	paperVerifyOpenreviewPdf: (vaultPath: string, path: string) => typedError<OpenReviewPdfVerification, string>(__TAURI_INVOKE("paper_verify_openreview_pdf", { vaultPath, path })),
 	/**
 	 *  Seed `{vault}/.agentero/templates/NOTES.md` with a starting template for
 	 *  the `custom` paper-note mode. Never overwrites an existing template.
@@ -696,6 +696,23 @@ export const commands = {
 	 *  is `Send` and keeps streaming from the blocking pool.
 	 */
 	zoteroSync: (args: ZoteroSyncArgs, onProgress: Channel<SyncProgress>) => __TAURI_INVOKE<ApiResult<ZoteroSyncResult>>("zotero_sync", { args, onProgress }),
+	/**
+	 *  Check an AlphaXiv API key with `GET /folders/v3` without saving it.
+	 *  An empty value or a mask rechecks the key already stored in Host settings.
+	 */
+	alphaxivTestKey: (apiKey: string) => __TAURI_INVOKE<ApiResult<AlphaXivAccount>>("alphaxiv_test_key", { apiKey }),
+	/**
+	 *  Validate a pasted AlphaXiv API key with `GET /folders/v3`, then store it.
+	 *  The returned settings snapshot masks the key. A failed check stores nothing.
+	 */
+	alphaxivSaveKey: (apiKey: string) => __TAURI_INVOKE<ApiResult<AlphaXivSaveResult_Serialize>>("alphaxiv_save_key", { apiKey }),
+	/**  Remove the stored AlphaXiv API key and the saved profile. */
+	alphaxivClearKey: () => __TAURI_INVOKE<ApiResult<AppSettings_Serialize>>("alphaxiv_clear_key"),
+	/**
+	 *  List the signed-in user's AlphaXiv folders. Each folder already includes
+	 *  its papers. Uses the stored key only.
+	 */
+	alphaxivListFolders: () => __TAURI_INVOKE<ApiResult<AlphaXivFolder[]>>("alphaxiv_list_folders"),
 	/**  Current sync binding + last-pass info for the settings pane. */
 	syncGetStatus: (args: SyncVaultArgs) => typedError<ApiResult<SyncStatus_Serialize>, string>(__TAURI_INVOKE("sync_get_status", { args })),
 	/**  Validate + connection-test + persist the S3 binding for a vault. */
@@ -1793,6 +1810,93 @@ export type AlphaxivPaper = {
 /**  Ranking of the Explore feed. `ForYou` needs a session and is left out. */
 export type AlphaxivSort = "hot" | "recent" | "likes" | "views";
 
+/**  Account fields safe to show in Settings. No credential. */
+export type AlphaXivAccount = {
+	username: string,
+	email: string,
+	realName: string,
+	/**  `realName`, else `username`, else `email`, else `"AlphaXiv"`. */
+	label: string,
+};
+
+/**  One library folder. `papers` is the list the folder payload already included. */
+export type AlphaXivFolder = {
+	id: string,
+	name: string,
+	folderType: string,
+	order: number,
+	parentId: string,
+	sharingStatus: string,
+	/**
+	 *  Lucide icon name from the folder appearance (`cpu`). Empty when AlphaXiv
+	 *  leaves the mark to the client and sends `icon: null`.
+	 */
+	icon: string,
+	/**  Appearance palette name (`red`, `orange`, …). Empty when unset. */
+	color: string,
+	papers: AlphaXivFolderPaper[],
+	paperCount: number,
+};
+
+/**  One paper inside a folder payload. */
+export type AlphaXivFolderPaper = {
+	paperGroupId: string,
+	universalPaperId: string,
+	canonicalId: string,
+	paperVersionId: string,
+	title: string,
+	paperAbstract: string,
+	topics: string[],
+	authors: string[],
+	/**
+	 *  Original `addedAt` string, or the decimal timestamp when that is all
+	 *  the payload has. Empty when absent.
+	 */
+	addedAt: string,
+	/**  Bare public arXiv id (`1706.03762`). Empty for private uploads. */
+	arxivId: string,
+	importable: boolean,
+	/**  [`SKIP_REASON_PRIVATE`] when `importable` is false, otherwise empty. */
+	skipReason: string,
+	/**  `https://pdfs.assets.alphaxiv.org/{canonical}.pdf` for a public paper. */
+	pdfUrl: string,
+};
+
+/**
+ *  Settings snapshot after a successful key save. `settings.alphaxiv.apiKey`
+ *  is masked. `account` has no profile: API keys cannot read `GET /users/v3`.
+ */
+export type AlphaXivSaveResult = AlphaXivSaveResult_Serialize | AlphaXivSaveResult_Deserialize;
+
+/**
+ *  Settings snapshot after a successful key save. `settings.alphaxiv.apiKey`
+ *  is masked. `account` has no profile: API keys cannot read `GET /users/v3`.
+ */
+export type AlphaXivSaveResult_Deserialize = {
+	settings: AppSettings_Deserialize,
+	account: AlphaXivAccount,
+};
+
+/**
+ *  Settings snapshot after a successful key save. `settings.alphaxiv.apiKey`
+ *  is masked. `account` has no profile: API keys cannot read `GET /users/v3`.
+ */
+export type AlphaXivSaveResult_Serialize = {
+	settings: AppSettings_Serialize,
+	account: AlphaXivAccount,
+};
+
+/**
+ *  AlphaXiv credential kept in Host settings. `api_key` is a secret.
+ *  Profile fields stay empty: API keys cannot read `GET /users/v3`.
+ */
+export type AlphaXivSettings = {
+	apiKey?: string,
+	username?: string,
+	email?: string,
+	realName?: string,
+};
+
 export type ApiResult<T> = {
 	ok: boolean,
 	data: T | null,
@@ -1844,6 +1948,12 @@ export type AppSettings_Deserialize = {
 	 *  the cookie carries no readable expiry. Drives the Settings status dot.
 	 */
 	openreviewCookieExpiresAt?: number,
+	/**
+	 *  AlphaXiv API key. The key is masked across IPC. A plaintext key in
+	 *  `settings_set` is ignored; only [`AppSettingsStore::update_alphaxiv_auth`]
+	 *  stores one, after `GET /folders/v3` succeeds. Profile fields stay empty.
+	 */
+	alphaxiv?: AlphaXivSettings,
 	paperTreeLabelMode?: string,
 	paperTreeSortMode?: string,
 	/**
@@ -2018,6 +2128,12 @@ export type AppSettings_Serialize = {
 	 *  the cookie carries no readable expiry. Drives the Settings status dot.
 	 */
 	openreviewCookieExpiresAt: number,
+	/**
+	 *  AlphaXiv API key. The key is masked across IPC. A plaintext key in
+	 *  `settings_set` is ignored; only [`AppSettingsStore::update_alphaxiv_auth`]
+	 *  stores one, after `GET /folders/v3` succeeds. Profile fields stay empty.
+	 */
+	alphaxiv: AlphaXivSettings,
 	paperTreeLabelMode: string,
 	paperTreeSortMode: string,
 	/**
@@ -3087,20 +3203,30 @@ export type DepPolicy = "allSettled" | "allSucceeded";
 /**  Stable id the frontend keys rows and brand logos on. */
 export type DesktopAppId = "chatgpt" | "qwenwork" | "workbuddy" | "dsh-desktop";
 
-/**  Detection result: macOS bundle or Windows executable path when known. */
+/**  Detection result: the installed executable (or macOS bundle) path when known. */
 export type DesktopAppStatus = DesktopAppStatus_Serialize | DesktopAppStatus_Deserialize;
 
-/**  Detection result: macOS bundle or Windows executable path when known. */
+/**  Detection result: the installed executable (or macOS bundle) path when known. */
 export type DesktopAppStatus_Deserialize = {
 	id: DesktopAppId,
 	installed: boolean,
+	/**
+	 *  True when the vendor ships no build for this platform, so the row can
+	 *  never become installed here.
+	 */
+	unsupported: boolean,
 	path: string | null,
 };
 
-/**  Detection result: macOS bundle or Windows executable path when known. */
+/**  Detection result: the installed executable (or macOS bundle) path when known. */
 export type DesktopAppStatus_Serialize = {
 	id: DesktopAppId,
 	installed: boolean,
+	/**
+	 *  True when the vendor ships no build for this platform, so the row can
+	 *  never become installed here.
+	 */
+	unsupported?: boolean,
 	path?: string | null,
 };
 
@@ -4309,6 +4435,7 @@ export type LookupImportResult_Deserialize = {
 	paperMd?: boolean,
 	/**  Download / parse messages (for UI warnings). */
 	assetMessages?: string[],
+	openreviewPdfIssue: OpenReviewPdfIssue | null,
 	/**
 	 *  `Deduped` when the paper already existed and (for local PDFs) the PDF
 	 *  was merged into the existing entry instead of creating a duplicate.
@@ -4338,6 +4465,7 @@ export type LookupImportResult_Serialize = {
 	paperMd: boolean,
 	/**  Download / parse messages (for UI warnings). */
 	assetMessages: string[],
+	openreviewPdfIssue?: OpenReviewPdfIssue | null,
 	/**
 	 *  `Deduped` when the paper already existed and (for local PDFs) the PDF
 	 *  was merged into the existing entry instead of creating a duplicate.
@@ -4485,6 +4613,14 @@ export type OpenInTerminalResult = {
 	cwd: string,
 };
 
+/**  Why the OpenReview PDF is still missing after trying available sources. */
+export type OpenReviewPdfIssue = "verificationRequired" | "rateLimited" | "network" | "unavailable" | "downloadFailed";
+
+export type OpenReviewPdfVerification = {
+	verified: boolean,
+	url: string,
+};
+
 export type OpenWithApp = {
 	/**  Stable id used by `path_open_with`. */
 	id: string,
@@ -4534,6 +4670,7 @@ export type PaperCommitResult = {
 	tex: boolean,
 	paperMd: boolean,
 	assetMessages: string[],
+	openreviewPdfIssue: OpenReviewPdfIssue | null,
 	/**  True when assets are still downloading in the background (`Deferred`). */
 	assetsPending: boolean,
 };
