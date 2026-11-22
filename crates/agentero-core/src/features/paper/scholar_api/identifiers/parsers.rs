@@ -1,9 +1,23 @@
 //! Per-source identifier extraction and normalization.
 
+const ARXIV_SECTIONS: &[&str] = &["abs", "pdf", "html", "src", "e-print"];
+/// alphaXiv mirrors every arXiv paper under its arXiv id, so a link copied
+/// from it is the paper itself, not a web page to snapshot. Its own uploads
+/// (`/abs/2611.harness-cg`) fail the id check below and stay URL imports.
+const ALPHAXIV_SECTIONS: &[&str] = &["abs", "overview", "pdf"];
+/// Hosts whose paper paths are `<host>/<section>/<arxiv id>`.
+const ARXIV_HOSTS: &[(&str, &[&str])] = &[
+    ("arxiv.org/", ARXIV_SECTIONS),
+    ("export.arxiv.org/", ARXIV_SECTIONS),
+    ("www.alphaxiv.org/", ALPHAXIV_SECTIONS),
+    ("alphaxiv.org/", ALPHAXIV_SECTIONS),
+];
+
 /// Extract a canonical arXiv id from a wide variety of user-facing forms.
 ///
-/// Handles plain IDs, `arXiv:` prefixes, and arxiv.org URL paths
-/// (`/abs`, `/pdf`, `/html`, `/src`, `/e-print`). Strips version suffixes.
+/// Handles plain IDs, `arXiv:` prefixes, arxiv.org URL paths (`/abs`, `/pdf`,
+/// `/html`, `/src`, `/e-print`) and alphaxiv.org paper paths (`/abs`,
+/// `/overview`, `/pdf`). Strips version suffixes.
 pub fn extract_arxiv_id(text: &str) -> Option<String> {
     extract_arxiv_request(text).map(|id| strip_arxiv_version(&id))
 }
@@ -15,15 +29,12 @@ pub fn extract_arxiv_request(text: &str) -> Option<String> {
         .strip_prefix("https://")
         .or_else(|| input.strip_prefix("http://"))
         .unwrap_or(input);
-    let mut id = if let Some(path) = input
-        .strip_prefix("arxiv.org/")
-        .or_else(|| input.strip_prefix("export.arxiv.org/"))
+    let mut id = if let Some((path, sections)) = ARXIV_HOSTS
+        .iter()
+        .find_map(|(host, sections)| input.strip_prefix(host).map(|path| (path, *sections)))
     {
-        let (_, id) = path.split_once('/')?;
-        if !["abs", "pdf", "html", "src", "e-print"]
-            .iter()
-            .any(|p| path.starts_with(&format!("{p}/")))
-        {
+        let (section, id) = path.split_once('/')?;
+        if !sections.contains(&section) {
             return None;
         }
         id
@@ -233,6 +244,38 @@ mod tests {
             extract_arxiv_id("https://arxiv.org/abs/arXiv:2608.13558v1").as_deref(),
             Some("2608.13558")
         );
+    }
+
+    /// alphaXiv paper links carry the arXiv id and import as that paper.
+    #[test]
+    fn arxiv_id_from_alphaxiv_links() {
+        assert_eq!(
+            extract_arxiv_id("https://www.alphaxiv.org/abs/2611.24778").as_deref(),
+            Some("2611.24778")
+        );
+        assert_eq!(
+            extract_arxiv_request("https://www.alphaxiv.org/abs/2611.24778v1").as_deref(),
+            Some("2611.24778v1")
+        );
+        assert_eq!(
+            extract_arxiv_id("https://alphaxiv.org/overview/1706.03762?tab=blog").as_deref(),
+            Some("1706.03762")
+        );
+        assert_eq!(
+            extract_arxiv_id("https://www.alphaxiv.org/pdf/hep-th/9901001").as_deref(),
+            Some("hep-th/9901001")
+        );
+        // alphaXiv's own uploads are not arXiv papers.
+        assert_eq!(
+            extract_arxiv_id("https://www.alphaxiv.org/abs/2611.harness-cg"),
+            None
+        );
+        // Only paper sections, not the rest of the site.
+        assert_eq!(
+            extract_arxiv_id("https://www.alphaxiv.org/explore/2611.24778"),
+            None
+        );
+        assert_eq!(extract_arxiv_id("https://www.alphaxiv.org/"), None);
     }
 
     #[test]

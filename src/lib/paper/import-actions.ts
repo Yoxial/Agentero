@@ -633,10 +633,14 @@ function skillJobSelections(params: unknown): SkillImportSelection[] {
 	);
 }
 
+/** arXiv ids, arxiv.org links, and alphaXiv paper links (which carry the arXiv id). */
+const ARXIV_LOOKUP_RE =
+	/arxiv\.org|alphaxiv\.org\/(?:abs|overview|pdf)\/|^\d{4}\.\d{4,5}(v\d+)?$/i;
+
 export function inferLookupSource(raw: string): string {
 	const text = raw.trim();
 	if (/npx\s+skills|github\.com|skills\.sh/i.test(text)) return "skill";
-	if (/arxiv\.org|^\d{4}\.\d{4,5}(v\d+)?$/i.test(text)) return "arxiv";
+	if (ARXIV_LOOKUP_RE.test(text)) return "arxiv";
 	if (/^10\.\d{4,}/.test(text) || /^doi:/i.test(text)) return "doi";
 	if (/^https?:\/\//i.test(text)) return "url";
 	return "id";

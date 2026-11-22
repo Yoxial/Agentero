@@ -2,7 +2,7 @@
 
 ## 按标题、DOI 或 arXiv 编号添加
 
-点侧栏顶部的魔棒，输入 DOI 或 arXiv 编号就能查到对应论文。只知道标题的话，先在搜索结果里核对作者和发表信息，再点 **添加**。
+点侧栏顶部的魔棒，输入 DOI、arXiv 编号或 arXiv、alphaXiv 的论文链接就能查到对应论文。只知道标题的话，先在搜索结果里核对作者和发表信息，再点 **添加**。
 
 [![魔棒弹窗中输入 arXiv 编号，底部是本地 PDF、书目导入与添加入口](../assets/screenshots/import.webp)](../assets/screenshots/import.webp)
 
