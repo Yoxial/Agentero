@@ -306,8 +306,7 @@
 			"votes_one": "{{count}} vote",
 			"votes_other": "{{count}} votes",
 			"views_one": "{{count}} view",
-			"views_other": "{{count}} views",
-			"nativeOnly": "alphaXiv original · not importable"
+			"views_other": "{{count}} views"
 		},
 		"pwc": {
 			"label": "Papers with Code"

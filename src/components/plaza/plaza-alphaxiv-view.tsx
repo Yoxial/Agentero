@@ -38,6 +38,7 @@ import { errorText } from "@/lib/core/error";
 import { notifyError } from "@/lib/core/notify";
 import { openExternalUrl } from "@/lib/core/open-external";
 import { cn } from "@/lib/core/utils";
+import { lookupSubmit } from "@/lib/paper/import-actions";
 import { currentLookupParentDir } from "@/lib/paper/library-actions";
 import {
 	ALPHAXIV_DEFAULT_INTERVAL,
@@ -54,7 +55,6 @@ import { formatFeedWhen } from "@/lib/plaza/feeds";
 import { importPlazaPaper } from "@/lib/plaza/import";
 import { matchingImportedIds } from "@/lib/plaza/imported";
 import { runTranslate } from "@/lib/translate";
-import { openRemoteArxivPaper } from "@/lib/workspace/actions";
 
 type Query = {
 	sort: AlphaxivSort;
@@ -335,20 +335,12 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 }
 
 /**
- * Open a paper inside the app (never jump to the system browser):
- * arXiv rows reuse the in-app PDF viewer; alphaXiv-only uploads have no
- * arXiv PDF, so they open in an in-app webview window.
+ * Open the alphaXiv paper page inside the app — for every row, including
+ * arXiv papers. The alphaXiv page is the paper's real home here (discussion,
+ * AI overview, blog) and carries citation metadata for import; the title
+ * click must never jump to the system browser.
  */
 function openPaperInApp(paper: AlphaxivPaper, url: string) {
-	if (paper.arxivId) {
-		openRemoteArxivPaper({
-			arxivId: paper.arxivId,
-			title: paper.title,
-			abstract: paper.abstractText,
-			url: `https://arxiv.org/abs/${paper.arxivId}`,
-		});
-		return;
-	}
 	void (async () => {
 		try {
 			const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
@@ -437,18 +429,31 @@ function PaperCard({
 	}
 
 	async function importTo(folder: string) {
-		if (!paper.arxivId) return;
 		setPickerOpen(false);
 		setImportState("pending");
 		rememberFolder(folder);
-		const ok = await importPlazaPaper(
-			{
-				id: paper.arxivId,
-				url: `https://arxiv.org/abs/${paper.arxivId}`,
-				title: paper.title,
-			},
-			folder,
-		);
+		let ok = false;
+		try {
+			if (paper.arxivId) {
+				// arXiv rows go through the 魔棒 path (keeps LaTeX source + arxiv id).
+				ok = await importPlazaPaper(
+					{
+						id: paper.arxivId,
+						url: `https://arxiv.org/abs/${paper.arxivId}`,
+						title: paper.title,
+					},
+					folder,
+				);
+			} else {
+				// alphaXiv originals have no arXiv id, but their page carries full
+				// citation metadata (incl. citation_pdf_url), so the generic URL
+				// import fetches the page and downloads its PDF.
+				await lookupSubmit([url], { parentDir: folder });
+				ok = true;
+			}
+		} catch (error) {
+			notifyError(errorText(error));
+		}
 		setImportState(ok ? "done" : "idle");
 	}
 
@@ -587,49 +592,40 @@ function PaperCard({
 									)}
 								</Button>
 							)}
-							{paper.arxivId ? (
-								<Popover
-									open={pickerOpen}
-									onOpenChange={(open) => {
-										setPickerOpen(open);
-										if (!open) setNewFolder("");
-									}}
-								>
-									<PopoverTrigger asChild>
-										<Button
-											type="button"
-											size="sm"
-											variant="outline"
-											className="rounded-full"
-											disabled={importDisabled}
-										>
-											{importLabel}
-										</Button>
-									</PopoverTrigger>
-									{pickerOpen && (
-										<MoveDestinationPicker
-											vaultPath={vaultPath}
-											nodes={tree}
-											sourcePaths={[]}
-											selectedFolder={lastFolder ?? currentLookupParentDir()}
-											newFolder={newFolder}
-											busy={false}
-											onNewFolderChange={setNewFolder}
-											onConfirm={importTo}
-											title={t("plaza.importToFolder")}
-											idPrefix={popupId}
-											side="bottom"
-										/>
-									)}
-								</Popover>
-							) : (
-								<span
-									className="text-xs text-muted-foreground"
-									title={t("plaza.alphaxivPage.nativeOnly")}
-								>
-									{t("plaza.alphaxivPage.nativeOnly")}
-								</span>
-							)}
+							<Popover
+								open={pickerOpen}
+								onOpenChange={(open) => {
+									setPickerOpen(open);
+									if (!open) setNewFolder("");
+								}}
+							>
+								<PopoverTrigger asChild>
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										className="rounded-full"
+										disabled={importDisabled}
+									>
+										{importLabel}
+									</Button>
+								</PopoverTrigger>
+								{pickerOpen && (
+									<MoveDestinationPicker
+										vaultPath={vaultPath}
+										nodes={tree}
+										sourcePaths={[]}
+										selectedFolder={lastFolder ?? currentLookupParentDir()}
+										newFolder={newFolder}
+										busy={false}
+										onNewFolderChange={setNewFolder}
+										onConfirm={importTo}
+										title={t("plaza.importToFolder")}
+										idPrefix={popupId}
+										side="bottom"
+									/>
+								)}
+							</Popover>
 						</div>
 						<div className="flex min-w-0 items-center gap-3 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
 							{categories.length > 0 && (
