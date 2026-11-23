@@ -18,7 +18,7 @@ import { callApi } from "@/lib/core/ipc";
 
 export type { AlphaxivFeedPage, AlphaxivInterval, AlphaxivPaper, AlphaxivSort };
 
-/** Toolbar order; mirrors the site's Explore tabs minus the signed-in one. */
+/** Public toolbar order; the view prepends `forYou` when a key is stored. */
 export const ALPHAXIV_SORTS: readonly AlphaxivSort[] = [
 	"hot",
 	"recent",

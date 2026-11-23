@@ -33,6 +33,9 @@ const GLOBAL_CONCURRENCY: usize = 4;
 /// Semantic Scholar API host that `auth_headers` gates on.
 const S2_API_HOST_PREFIX: &str = "https://api.semanticscholar.org/";
 
+/// alphaXiv API host that the bearer credential gates on.
+const ALPHAXIV_API_HOST_PREFIX: &str = "https://api.alphaxiv.org/";
+
 /// Optional BYOK credential read from the environment at request time.
 /// Empty/whitespace values are ignored so the unauthenticated free tier stays
 /// the default.
@@ -109,6 +112,27 @@ pub async fn get_json(url: &str) -> Result<Value, ApiError> {
 
 pub async fn get_json_with_timeout(url: &str, timeout: Duration) -> Result<Value, ApiError> {
     let text = get_text_with_timeout(url, timeout).await?;
+    serde_json::from_str(&text).map_err(|e| ApiError::Parse(format!("json: {e}")))
+}
+
+/// Fetch `url` as JSON with an alphaXiv API key as the bearer credential.
+/// The `Authorization` header is attached only to the alphaXiv API host, so
+/// the key cannot leak to another origin. The key never appears in errors.
+pub async fn get_json_with_bearer(url: &str, api_key: &str) -> Result<Value, ApiError> {
+    let _permit = acquire_permit().await;
+    let client = http_client(DEFAULT_TIMEOUT)?;
+    let mut request = client.get(url);
+    for (name, value) in auth_headers(url) {
+        request = request.header(name, value);
+    }
+    if url.starts_with(ALPHAXIV_API_HOST_PREFIX) {
+        request = request.header("Authorization", format!("Bearer {}", api_key.trim()));
+    }
+    let res = request
+        .send()
+        .await
+        .map_err(|e| ApiError::Network(e.to_string()))?;
+    let text = handle_response(res).await?;
     serde_json::from_str(&text).map_err(|e| ApiError::Parse(format!("json: {e}")))
 }
 

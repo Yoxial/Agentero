@@ -4,7 +4,9 @@
 //! origin, so neither route the other sources take works here: a same-origin
 //! proxy embed (ModelScope) would leave the page's own API calls blocked, and a
 //! renderer `fetch` (Hugging Face) is refused outright. The Host fetches the
-//! public feed and the panel renders it natively.
+//! feed and the panel renders it natively. The public sorts need no credential;
+//! `ForYou` is the account's recommendation feed and carries the stored
+//! alphaXiv API key as a bearer header.
 //!
 //! Same undocumented, unauthenticated endpoint family as the metadata source in
 //! `scholar_api::sources::alphaxiv`, same posture: best effort, never
@@ -25,7 +27,8 @@ const API_BASE: &str = "https://api.alphaxiv.org";
 /// One screen of cards; the panel pages with `page`.
 pub const PAGE_SIZE: usize = 30;
 
-/// Ranking of the Explore feed. `ForYou` needs a session and is left out.
+/// Ranking of the Explore feed. `ForYou` is the signed-in recommendation feed
+/// and needs the stored API key; the API ignores its interval and topics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum AlphaxivSort {
@@ -33,6 +36,8 @@ pub enum AlphaxivSort {
     Recent,
     Likes,
     Views,
+    #[serde(rename = "forYou")]
+    ForYou,
 }
 
 impl AlphaxivSort {
@@ -42,6 +47,7 @@ impl AlphaxivSort {
             Self::Recent => "Recent",
             Self::Likes => "Likes",
             Self::Views => "Views",
+            Self::ForYou => "ForYou",
         }
     }
 }
@@ -148,7 +154,11 @@ pub fn search_url(text: &str) -> String {
     format!("{API_BASE}/v1/search/paper?q={}", urlencoding::encode(text))
 }
 
-pub async fn fetch_feed(query: &AlphaxivFeedQuery) -> Result<AlphaxivFeedPage, AppError> {
+/// `api_key` is the stored alphaXiv API key; only `ForYou` sends it.
+pub async fn fetch_feed(
+    query: &AlphaxivFeedQuery,
+    api_key: Option<&str>,
+) -> Result<AlphaxivFeedPage, AppError> {
     let search = query
         .search
         .as_deref()
@@ -159,7 +169,18 @@ pub async fn fetch_feed(query: &AlphaxivFeedQuery) -> Result<AlphaxivFeedPage, A
         return parse_search(&value)
             .ok_or_else(|| AppError::message("alphaXiv search: unexpected response shape"));
     }
-    let value = client::get_json(&feed_url(query)).await?;
+    let url = feed_url(query);
+    let value = if query.sort == AlphaxivSort::ForYou {
+        let key = api_key
+            .map(str::trim)
+            .filter(|key| !key.is_empty())
+            .ok_or_else(|| {
+                AppError::domain("alphaxiv_key_missing", "AlphaXiv API key is not set")
+            })?;
+        client::get_json_with_bearer(&url, key).await?
+    } else {
+        client::get_json(&url).await?
+    };
     parse_feed(&value, query.page)
         .ok_or_else(|| AppError::message("alphaXiv feed: unexpected response shape"))
 }
@@ -406,5 +427,37 @@ mod tests {
                 .expect("query");
         assert_eq!(query.sort, AlphaxivSort::Likes);
         assert_eq!(query.interval, AlphaxivInterval::Days30);
+    }
+
+    #[test]
+    fn for_you_sort_uses_upstream_spelling() {
+        let query: AlphaxivFeedQuery =
+            serde_json::from_value(json!({ "sort": "forYou", "interval": "days7", "page": 0 }))
+                .expect("query");
+        assert_eq!(query.sort, AlphaxivSort::ForYou);
+        assert!(feed_url(&query).contains("sort=ForYou"));
+        assert_eq!(
+            serde_json::to_value(AlphaxivSort::ForYou).expect("serialized"),
+            json!("forYou")
+        );
+    }
+
+    /// ForYou without a stored key fails before any request goes out.
+    #[tokio::test]
+    async fn for_you_requires_a_key() {
+        let query = AlphaxivFeedQuery {
+            sort: AlphaxivSort::ForYou,
+            interval: AlphaxivInterval::Days7,
+            page: 0,
+            topics: Vec::new(),
+            search: None,
+        };
+        for key in [None, Some(""), Some("   ")] {
+            let err = fetch_feed(&query, key).await.expect_err("missing key");
+            assert!(
+                matches!(&err, AppError::Domain { code, .. } if *code == "alphaxiv_key_missing"),
+                "unexpected error: {err:?}"
+            );
+        }
     }
 }

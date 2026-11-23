@@ -291,6 +291,7 @@
 			"searchPlaceholder": "Search alphaXiv…",
 			"clearSearch": "Clear search",
 			"sort": {
+				"forYou": "For You",
 				"hot": "Hot",
 				"recent": "Recent",
 				"likes": "Likes",

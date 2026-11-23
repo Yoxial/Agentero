@@ -33,10 +33,15 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { useLibraryStore, useVaultStore } from "@/hooks/use-app-stores";
+import {
+	useLibraryStore,
+	useSettings,
+	useVaultStore,
+} from "@/hooks/use-app-stores";
 import { errorText } from "@/lib/core/error";
 import { notifyError } from "@/lib/core/notify";
 import { openExternalUrl } from "@/lib/core/open-external";
+import { hasSecret } from "@/lib/core/secret-mask";
 import { cn } from "@/lib/core/utils";
 import { lookupSubmit } from "@/lib/paper/import-actions";
 import { currentLookupParentDir } from "@/lib/paper/library-actions";
@@ -66,8 +71,10 @@ type Query = {
 
 export function PlazaAlphaxivView({ className }: { className?: string }) {
 	const { t } = useTranslation("sidebar");
+	// A stored API key unlocks the account's ForYou recommendation feed.
+	const signedIn = useSettings((state) => hasSecret(state.alphaxiv.apiKey));
 	const [query, setQuery] = useState<Query>({
-		sort: ALPHAXIV_DEFAULT_SORT,
+		sort: signedIn ? "forYou" : ALPHAXIV_DEFAULT_SORT,
 		interval: ALPHAXIV_DEFAULT_INTERVAL,
 		topics: [],
 		search: "",
@@ -75,7 +82,13 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 	});
 	const [searchDraft, setSearchDraft] = useState("");
 	// Search replaces the feed, so its ranking and category controls go idle.
+	// ForYou ignores interval and categories upstream, so they go idle too.
 	const searching = query.search !== "";
+	const forYou = query.sort === "forYou";
+	const filtersIdle = searching || forYou;
+	const sorts: readonly AlphaxivSort[] = signedIn
+		? ["forYou", ...ALPHAXIV_SORTS]
+		: ALPHAXIV_SORTS;
 	const [papers, setPapers] = useState<AlphaxivPaper[]>([]);
 	const [page, setPage] = useState(0);
 	const [hasMore, setHasMore] = useState(false);
@@ -102,6 +115,17 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 	);
 
 	const reload = () => setQuery((prev) => ({ ...prev, nonce: prev.nonce + 1 }));
+
+	// Disconnecting in Settings drops ForYou back to the public default.
+	useEffect(() => {
+		if (!signedIn) {
+			setQuery((prev) =>
+				prev.sort === "forYou"
+					? { ...prev, sort: ALPHAXIV_DEFAULT_SORT }
+					: prev,
+			);
+		}
+	}, [signedIn]);
 
 	useEffect(() => {
 		const id = ++requestRef.current;
@@ -187,7 +211,7 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 					)}
 				</form>
 				<div className="flex flex-wrap items-center gap-1.5">
-					{ALPHAXIV_SORTS.map((sort) => (
+					{sorts.map((sort) => (
 						<Button
 							key={sort}
 							type="button"
@@ -203,7 +227,7 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 					))}
 					<Select
 						value={query.interval}
-						disabled={searching}
+						disabled={filtersIdle}
 						onValueChange={(interval) =>
 							setQuery((prev) => ({
 								...prev,
@@ -231,13 +255,13 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 							key={topic}
 							className={cn(
 								"inline-flex items-center gap-0.5 rounded-full border border-primary/40 bg-primary/10 py-0.5 pr-0.5 pl-2 font-mono text-caption text-foreground",
-								searching && "opacity-60",
+								filtersIdle && "opacity-60",
 							)}
 						>
 							{topic}
 							<button
 								type="button"
-								disabled={searching}
+								disabled={filtersIdle}
 								className="rounded-full p-0.5 hover:bg-foreground/10"
 								aria-label={t("plaza.arxivRec.removeCategory", {
 									category: topic,
@@ -254,7 +278,7 @@ export function PlazaAlphaxivView({ className }: { className?: string }) {
 						</span>
 					))}
 					<CategoryPicker
-						disabled={searching}
+						disabled={filtersIdle}
 						existing={query.topics}
 						onSelect={(topic) =>
 							setQuery((prev) => ({

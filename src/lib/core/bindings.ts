@@ -1759,57 +1759,6 @@ export type AliasRepairResult = {
 	updatedPaths: string[],
 };
 
-export type AlphaxivFeedPage = {
-	page: number,
-	papers: AlphaxivPaper[],
-	/**  A full page came back, so the next one is worth asking for. */
-	hasMore: boolean,
-};
-
-export type AlphaxivFeedQuery = {
-	sort: AlphaxivSort,
-	interval: AlphaxivInterval,
-	/**  Zero-based page. */
-	page: number,
-	/**  arXiv categories (`cs.CV`); a paper in any of them matches. Empty = all. */
-	topics?: string[],
-	/**
-	 *  Free-text search. When set, the site's search answers instead of the
-	 *  feed: one unpaged result list, and the ranking fields do not apply.
-	 */
-	search?: string | null,
-};
-
-/**  Publication window of the Explore feed. */
-export type AlphaxivInterval = "days3" | "days7" | "days30" | "days90" | "allTime";
-
-export type AlphaxivPaper = {
-	/**
-	 *  alphaXiv's paper id — the `/abs/{id}` path on the site. Equals the bare
-	 *  arXiv id for arXiv papers.
-	 */
-	id: string,
-	/**  Bare arXiv id; `None` for alphaXiv's own uploads, which cannot be imported. */
-	arxivId: string | null,
-	title: string,
-	/**  The paper's abstract, never alphaXiv's AI summary. */
-	abstractText: string,
-	authors: string[],
-	/**  arXiv categories plus alphaXiv's own topic tags. */
-	topics: string[],
-	/**  `YYYY-MM-DD` of the first publication. */
-	published: string | null,
-	votes: number | null,
-	views: number | null,
-	/**  Cover from alphaXiv's asset CDN only. */
-	thumbnail: string | null,
-	githubUrl: string | null,
-	githubStars: number | null,
-};
-
-/**  Ranking of the Explore feed. `ForYou` needs a session and is left out. */
-export type AlphaxivSort = "hot" | "recent" | "likes" | "views";
-
 /**  Account fields safe to show in Settings. No credential. */
 export type AlphaXivAccount = {
 	username: string,
@@ -1896,6 +1845,60 @@ export type AlphaXivSettings = {
 	email?: string,
 	realName?: string,
 };
+
+export type AlphaxivFeedPage = {
+	page: number,
+	papers: AlphaxivPaper[],
+	/**  A full page came back, so the next one is worth asking for. */
+	hasMore: boolean,
+};
+
+export type AlphaxivFeedQuery = {
+	sort: AlphaxivSort,
+	interval: AlphaxivInterval,
+	/**  Zero-based page. */
+	page: number,
+	/**  arXiv categories (`cs.CV`); a paper in any of them matches. Empty = all. */
+	topics?: string[],
+	/**
+	 *  Free-text search. When set, the site's search answers instead of the
+	 *  feed: one unpaged result list, and the ranking fields do not apply.
+	 */
+	search?: string | null,
+};
+
+/**  Publication window of the Explore feed. */
+export type AlphaxivInterval = "days3" | "days7" | "days30" | "days90" | "allTime";
+
+export type AlphaxivPaper = {
+	/**
+	 *  alphaXiv's paper id — the `/abs/{id}` path on the site. Equals the bare
+	 *  arXiv id for arXiv papers.
+	 */
+	id: string,
+	/**  Bare arXiv id; `None` for alphaXiv's own uploads, which cannot be imported. */
+	arxivId: string | null,
+	title: string,
+	/**  The paper's abstract, never alphaXiv's AI summary. */
+	abstractText: string,
+	authors: string[],
+	/**  arXiv categories plus alphaXiv's own topic tags. */
+	topics: string[],
+	/**  `YYYY-MM-DD` of the first publication. */
+	published: string | null,
+	votes: number | null,
+	views: number | null,
+	/**  Cover from alphaXiv's asset CDN only. */
+	thumbnail: string | null,
+	githubUrl: string | null,
+	githubStars: number | null,
+};
+
+/**
+ *  Ranking of the Explore feed. `ForYou` is the signed-in recommendation feed
+ *  and needs the stored API key; the API ignores its interval and topics.
+ */
+export type AlphaxivSort = "hot" | "recent" | "likes" | "views" | "forYou";
 
 export type ApiResult<T> = {
 	ok: boolean,
