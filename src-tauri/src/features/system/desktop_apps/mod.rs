@@ -186,6 +186,8 @@ const APPS: &[AppSpec] = &[
 /// the agent catalog re-probes every template on each scan. A short TTL keeps
 /// repeated scans cheap while still noticing an app installed mid-session; an
 /// installer also calls [`invalidate_detect_cache`].
+// Every caller is Windows/macOS-only, so Linux clippy sees these as dead.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 const DETECT_TTL: Duration = Duration::from_secs(60);
 
 type DetectCache = HashMap<DesktopAppId, (Instant, Option<PathBuf>)>;
@@ -208,6 +210,7 @@ pub fn invalidate_detect_cache() {
 /// Cached [`detect_app_uncached`]. Negative results matter most: a missing app
 /// costs two `mdfind` spawns per lookup, and the catalog asks several times
 /// per scan.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 fn detect_app(spec: &AppSpec) -> Option<PathBuf> {
     if let Some((probed_at, path)) = detect_cache()
         .lock()
